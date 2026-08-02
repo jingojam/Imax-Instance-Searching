@@ -79,8 +79,9 @@ class Master:
             self.results[self.current_node]['results'][subset] = self.nodes[self.current_node]['proxy'].ImaxTrain(self.X_train.tolist, self.X_test, self.y_train, self.y_test, subset)
             self.NextNode()
 
-        for node, results in self.results.items():
-            print(f"duration: {results['duration']}\n{results['report']}")
+        for node, data in self.results.items():
+            for subset, results in data.items():
+                print(f"duration: {results['duration']}, subset={subset}%\n{results['report']}")
 
 async def main():
     await asyncio.sleep(3) # wait 3 seconds to let workers write to their files during startup
