@@ -17,6 +17,7 @@ class Master:
     def __init__(self):
         self.current_node = 0
         self.nodes = {}
+        self.results = {}
         node_id = 0
 
         # since all workers write their node info to their own data file
@@ -61,18 +62,25 @@ class Master:
 
     """
         Moves pointer to the next node, and sets it to current
-        Returns id of the new current node
     """
     def NextNode(self):
         self.current_node = (self.current_node + 1) % 5
-        return self.current_node
 
     """
         Entry point to Master node
     """
     def Run(self):
+        # start subset of 5% of the dataset
+        subset = 0.05
 
-        pass
+        # until 100% ~ 20 iterations
+        while subset <= 1.0:
+            self.results[self.current_node][subset] = self.nodes[self.current_node]['proxy'].ImaxTrain(subset)
+            subset += 0.05
+            
+            # distribute subset % to workers in round robin
+            self.NextNode()
+        
 
 async def main():
     await asyncio.sleep(3) # wait 3 seconds to let workers write to their files during startup
