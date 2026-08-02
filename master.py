@@ -49,11 +49,13 @@ class Master:
     """
     def LoadDataset(self, dataset, test_size=0.2, train_size=0.8):
         df = pd.read_csv(dataset)
-        self.X = df.drop(columns=['url', 'label', 'tld'], inplace=True)
-        self.y = df['label']
+        # HERE this might be wrong, assumed 'status' column is the results to train on
+        self.X = df.drop(columns=['status'])
+        self.y = df['status']
 
+        # split dataset into training (80%) and testing (20%) splits
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
-            self.dataset,
+            self.X, self.y,
             test_size=test_size,
             train_size=train_size,
             shuffle=True,
@@ -64,28 +66,26 @@ class Master:
         Moves pointer to the next node, and sets it to current
     """
     def NextNode(self):
+        # currently docker compose creates 5 worker containers, so it just cycles after 5
         self.current_node = (self.current_node + 1) % 5
 
     """
         Entry point to Master node
     """
     def Run(self):
-        # start subset of 5% of the dataset
-        subset = 0.05
-
-        # until 100% ~ 20 iterations
-        while subset <= 1.0:
-            self.results[self.current_node][subset] = self.nodes[self.current_node]['proxy'].ImaxTrain(subset)
-            subset += 0.05
-            
-            # distribute subset % to workers in round robin
+        #every 5% increase until 100% of the dataset rows
+        for i in range(5, 101, 5):
+            subset = int(i/100)
+            self.results[self.current_node]['results'][subset] = self.nodes[self.current_node]['proxy'].ImaxTrain(self.X_train.tolist, self.X_test, self.y_train, self.y_test, subset)
             self.NextNode()
-        
+
+        for node, results in self.results.items():
+            print(f"duration: {results['duration']}\n{results['report']}")
 
 async def main():
     await asyncio.sleep(3) # wait 3 seconds to let workers write to their files during startup
     master = Master()
-    master.LoadDataset('/data/phishing_features.csv', test_size=0.2, train_size=0.8)
+    master.LoadDataset(f"{os.getcwd()}/data/dataset_phishing_trimmed.csv", test_size=0.2, train_size=0.8)
     master.Run()
 
 if __name__ == "__main__":

@@ -3,7 +3,10 @@ import asyncio
 import os
 import json
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report
+import datetime
 import pandas as pd
+import socket
 
 @Pyro5.api.expose
 class Worker:
@@ -13,14 +16,33 @@ class Worker:
     """
         Method for training (from start_instance row, to last_instance row).
         Returns a generated Random Forest for the batch
+
+        ref: https://www.youtube.com/watch?v=_QuGM_FW9eo
     """
-    def ImaxTrain(self, subset):
-        pass
+    def ImaxTrain(self, X_train, X_test, y_train, y_test, subset):
+        results = {}
+        last_instance = len(X_train) * subset
+
+        # subset is from the first row until % of total
+        X_subset = X_train.iloc[:last_instance]
+        y_subset = y_train.iloc[:last_instance]
+        rf = RandomForestClassifier(random_state=42)
+        start = datetime.now()
+        rf.fit(X_subset, y_subset)
+        y_pred = rf.predict(X_test)
+        end = datetime.now()
+
+        # training results
+        results['score'] = rf.score(X_test, y_test)
+        results['report'] = classification_report(y_test, y_pred)
+        results['duration'] = end - start
+        return results
+
 
 def main():
     # create a pyro daemon for dispatching rpc
-    #  use wildcard address to automatically resolve to specific container
-    daemon = Pyro5.api.Daemon(host='0.0.0.0')
+    # use hostname assigned to container
+    daemon = Pyro5.api.Daemon(host=socket.gethostname())
 
     # instantiate worker object
     worker = Worker()
