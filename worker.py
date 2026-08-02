@@ -14,7 +14,7 @@ class Worker:
         Method for training (from start_instance row, to last_instance row).
         Returns a generated Random Forest for the batch
     """
-    def ImaxTrain(self, start_instance, last_instance):
+    def ImaxTrain(self, subset):
         pass
 
 def main():

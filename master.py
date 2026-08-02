@@ -11,6 +11,9 @@ from sklearn.model_selection import train_test_split
 #  random foresy: https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html
 
 class Master:
+    """
+        Default constructor
+    """
     def __init__(self):
         self.current_node = 0
         self.nodes = {}
@@ -40,16 +43,42 @@ class Master:
             self.nodes[id]['proxy'] = Pyro5.api.Proxy(self.nodes[id]['uri'])
             print(f"Connected to Worker Node {self.nodes[id]['node_name']} at URI {self.nodes[id]['uri']}")
 
-    def StartScheduler(self):
-        # flow is something like (assuming Train() RPC generates a random forest and writes ):
-        #   random_forest = self.nodes[self.current_node].ImaxTrain(start_instance, end_instance)
-        #   self.nodes[self.current_node]['forest'] = random_forest
-        #       then testing on 20% of dataset...
+    """
+        Loads dataset from disk and splits it to training and testing (80%/20% default)
+    """
+    def LoadDataset(self, dataset, test_size=0.2, train_size=0.8):
+        df = pd.read_csv(dataset)
+        self.X = df.drop(columns=['url', 'label', 'tld'], inplace=True)
+        self.y = df['label']
+
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
+            self.dataset,
+            test_size=test_size,
+            train_size=train_size,
+            shuffle=True,
+            random_state=42  
+        )
+
+    """
+        Moves pointer to the next node, and sets it to current
+        Returns id of the new current node
+    """
+    def NextNode(self):
+        self.current_node = (self.current_node + 1) % 5
+        return self.current_node
+
+    """
+        Entry point to Master node
+    """
+    def Run(self):
+
         pass
 
 async def main():
     await asyncio.sleep(3) # wait 3 seconds to let workers write to their files during startup
     master = Master()
+    master.LoadDataset('/data/phishing_features.csv', test_size=0.2, train_size=0.8)
+    master.Run()
 
 if __name__ == "__main__":
     asyncio.run(main())
