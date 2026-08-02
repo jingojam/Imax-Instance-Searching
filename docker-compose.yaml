@@ -1,0 +1,87 @@
+networks:
+  imax_net: # main network between nodes
+    driver: bridge
+
+volumes:
+  shared-data:
+
+services:
+  # worker nodes
+  worker0:
+    build: .
+    container_name: worker0
+    command: python3 worker.py
+    environment:
+      - NODE_NAME=WORKER0
+      - PYTHONUNBUFFERED=1
+    networks:
+      - imax_net
+    volumes:
+      - shared-data:/data
+      
+  worker1:
+    build: .
+    container_name: worker1
+    command: python3 worker.py
+    environment:
+      - NODE_NAME=WORKER1
+      - PYTHONUNBUFFERED=1
+    networks:
+      - imax_net
+    volumes:
+      - shared-data:/data
+
+  worker2:
+    build: .
+    container_name: worker2
+    command: python3 worker.py
+    environment:
+      - NODE_NAME=WORKER2
+      - PYTHONUNBUFFERED=1
+    networks:
+      - imax_net
+    volumes:
+      - shared-data:/data
+
+  worker3:
+    build: .
+    container_name: worker3
+    command: python3 worker.py
+    environment:
+      - NODE_NAME=WORKER3
+      - PYTHONUNBUFFERED=1
+    networks:
+      - imax_net
+    volumes:
+      - shared-data:/data
+
+  worker4:
+    build: .
+    container_name: worker4
+    command: python3 worker.py
+    environment:
+      - NODE_NAME=WORKER4
+      - PYTHONUNBUFFERED=1
+    networks:
+      - imax_net
+    volumes:
+      - shared-data:/data
+
+  # central server
+  master:
+    build: .
+    container_name: master
+    command: python3 master.py
+    environment:
+      - NODE_NAME=MASTER
+      - PYTHONUNBUFFERED=1
+    networks:
+      - imax_net
+    volumes:
+      - shared-data:/data
+    depends_on:
+      - worker0
+      - worker1
+      - worker2
+      - worker3
+      - worker4
