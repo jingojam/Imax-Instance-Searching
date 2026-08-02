@@ -2,6 +2,8 @@ import Pyro5.api
 import asyncio
 import os
 import json
+from sklearn.ensemble import RandomForestClassifier
+import pandas as pd
 
 @Pyro5.api.expose
 class Worker:
@@ -40,9 +42,11 @@ def main():
         "uri": str(uri)
     }
 
+    print(f"Worker Node {node_data['node_name']} at URI {node_data['uri']}")
+
     # write the URI to shared json (env config) file 
     #  this is so the server can automatically fetch worker uris
-    with open(json_env, 'w', encoding='utf-8') as file:
+    with open(json_env, "w", encoding="utf-8") as file:
         json.dump(node_data, file)
         
     daemon.requestLoop()

@@ -3,6 +3,12 @@ import asyncio
 import os
 import json
 import glob
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
+# important stuff
+#  training/testing split: https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html#sklearn.model_selection.train_test_split
+#  random foresy: https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html
 
 class Master:
     def __init__(self):
@@ -21,7 +27,7 @@ class Master:
         for path in paths:
             # check if config file exists
             try:
-                with open(path, 'r', encoding='utf-8') as file:
+                with open(path, "r", encoding="utf-8") as file:
                     node_data = json.load(file)
                     self.nodes[node_id] = node_data
 
@@ -30,8 +36,9 @@ class Master:
                 print(f"File error: couldn't find {json_env}.\n")
                 return
 
-        for id, data in node_configs.items():
+        for id, data in self.nodes.items():
             self.nodes[id]['proxy'] = Pyro5.api.Proxy(self.nodes[id]['uri'])
+            print(f"Connected to Worker Node {self.nodes[id]['node_name']} at URI {self.nodes[id]['uri']}")
 
     def StartScheduler(self):
         # flow is something like (assuming Train() RPC generates a random forest and writes ):
@@ -41,7 +48,7 @@ class Master:
         pass
 
 async def main():
-    await asyncio.sleep(3000) # wait 3 seconds to let workers write to their files during startup
+    await asyncio.sleep(3) # wait 3 seconds to let workers write to their files during startup
     master = Master()
 
 if __name__ == "__main__":
