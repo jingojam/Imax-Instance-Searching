@@ -1,4 +1,5 @@
 import Pyro5.api
+import Pyro5.errors
 import os
 import json
 import pandas as pd
@@ -8,6 +9,9 @@ from sklearn.model_selection import train_test_split
 # important stuff
 #  training/testing split: https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html#sklearn.model_selection.train_test_split
 #  random foresy: https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html
+
+PERCENT = 5   # starting subset of instances to feed to the workers
+INCREMENT = 5 # increments (5%, 10%, etc.)
 
 class Master:
     """
@@ -44,7 +48,7 @@ class Master:
             self.X, self.y,
             test_size=test_size,
             train_size=train_size,
-            shuffle=True,
+            stratify=y,
             random_state=42  
         )
 
@@ -52,27 +56,37 @@ class Master:
         Entry point to Master node
     """
     def Run(self):
-        # start with 5% of the training set
-        percent = 5
+        # start with % of the training set
+        percent = PERCENT
         
         # until 100% of the rows
         while percent < 101:  
+            # convert dfs and series to transmittable format (dict), somehow pyro only supports standard types
+            #  this can be expensive/slow
+            xtr = self.X_train.to_dict(orient='records')
+            xte = self.X_test.to_dict(orient='records')
+            ytr = self.y_train.to_dict()
+            yte = self.y_test.to_dict()
+            
+            #cycle through every worker (round-robin)
             for worker_name, uri in self.workers.items():
+                if percent > 100:
+                    break
+
                 subset = percent/100
 
-                # convert dfs and series to transmittable format (dict), somehow pyro only supports standard types
-                #  this can be expensive/slow
-                xtr = self.X_train.to_dict(orient='records')
-                xte = self.X_test.to_dict(orient='records')
-                ytr = self.y_train.to_dict()
-                yte = self.y_test.to_dict()
-
                 # obtain a proxy object to the worker
-                with Pyro5.api.Proxy(uri) as worker: 
-                    self.results[worker_name][f"{percent}%"] = worker.ImaxTrain(xtr, xte, ytr, yte, subset) #RMI
-                
-                #every 5% increase until 100% of the dataset rows
-                percent += 5
+                with Pyro5.api.Proxy(uri) as worker:
+                    try:
+                        self.results[worker_name][f"{percent}%"] = worker.ImaxTrain(xtr, xte, ytr, yte, subset) #RMI
+                    except Pyro5.errors.CommunicationError: # failed to communicate with worker
+                        print(f"Connection to Worker {worker_name} unexpectedly failed.\n")
+                        # move to the next worker available
+                        #  use the same subset for the next worker (all-or-nothing for worker)
+                        continue
+
+                #every % increase until 100% of the dataset rows
+                percent += INCREMENT
 
         for worker_name, results in self.results.items():
             for result_class, data in results.items():
