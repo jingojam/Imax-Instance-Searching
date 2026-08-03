@@ -7,6 +7,12 @@ from datetime import datetime
 import pandas as pd
 import socket
 
+RANDOM_STATE = 42
+POLL_INTERVAL = 0.5
+N_ESTIMATORS = 100
+N_JOBS = 1  # keep at 1-2 when running multiple worker processes on the same machine,
+            # otherwise each RandomForest fights the others for all CPU cores.
+
 @Pyro5.api.expose
 class Worker:
     def __init(self):
@@ -31,7 +37,12 @@ class Worker:
         # subset is from the first row until % of total
         X_subset = X_train.iloc[:last_instance]
         y_subset = y_train.iloc[:last_instance]
-        rf = RandomForestClassifier(random_state=42)
+        rf = RandomForestClassifier(
+                n_estimators=N_ESTIMATORS,
+                random_state=RANDOM_STATE,
+                n_jobs=N_JOBS
+            )
+
         start = datetime.now()
         rf.fit(X_subset, y_subset)
         y_pred = rf.predict(X_test)
