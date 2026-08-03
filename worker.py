@@ -1,5 +1,4 @@
 import Pyro5.api
-import asyncio
 import os
 import json
 from sklearn.ensemble import RandomForestClassifier

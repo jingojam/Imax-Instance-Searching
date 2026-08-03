@@ -1,9 +1,9 @@
 import Pyro5.api
-import asyncio
 import os
 import json
 import glob
 import pandas as pd
+import time
 from sklearn.model_selection import train_test_split
 
 # important stuff
@@ -91,11 +91,11 @@ class Master:
             for subset, results in data.items():
                 print(f"node: {node}, score={results['score']}, duration: {results['duration']}, subset={subset}%\n{results['report']}")
 
-async def main():
-    await asyncio.sleep(3) # wait 3 seconds to let workers write to their files during startup
+def main():
+    time.sleep(3) # wait 3 seconds to let workers write to their files during startup
     master = Master()
     master.LoadDataset(f"{os.getcwd()}/data/dataset_phishing_trimmed.csv", test_size=0.2, train_size=0.8)
     master.Run()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
