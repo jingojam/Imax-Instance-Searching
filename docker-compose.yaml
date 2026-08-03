@@ -6,7 +6,15 @@ volumes:
   shared-data:
 
 services:
-  # worker nodes
+  # nameserver
+  nameserver:
+    build: .
+    container_name: nameserver
+    command: python3 -m Pyro5.nameserver -n 0.0.0.0
+    networks:
+      - imax_net
+
+  # worker nodes (5 workers)
   worker0:
     build: .
     container_name: worker0
@@ -19,6 +27,8 @@ services:
       - imax_net
     volumes:
       - shared-data:/data
+    depends_on:
+      - nameserver
       
   worker1:
     build: .
@@ -32,7 +42,9 @@ services:
       - imax_net
     volumes:
       - shared-data:/data
-
+    depends_on:
+      - nameserver
+    
   worker2:
     build: .
     container_name: worker2
@@ -45,6 +57,8 @@ services:
       - imax_net
     volumes:
       - shared-data:/data
+    depends_on:
+      - nameserver
 
   worker3:
     build: .
@@ -58,6 +72,8 @@ services:
       - imax_net
     volumes:
       - shared-data:/data
+    depends_on:
+      - nameserver
 
   worker4:
     build: .
@@ -71,6 +87,8 @@ services:
       - imax_net
     volumes:
       - shared-data:/data
+    depends_on:
+      - nameserver
 
   # central server
   master:
@@ -91,3 +109,4 @@ services:
       - worker2
       - worker3
       - worker4
+      - nameserver

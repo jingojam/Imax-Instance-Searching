@@ -15,35 +15,21 @@ class Master:
         Default constructor
     """
     def __init__(self):
-        self.current_node = 0
-        self.nodes = {}
         self.results = {}
-        node_id = 0
+        name_server = Pyro5.api.locate_ns("nameserver")
 
-        # since all workers write their node info to their own data file
-        #  load every file in /data (of pattern *_data.json)
-        filename_pattern = os.path.join('/data', '*_data.json')
+        print()
+        
+        #get dict of workers registered to the nameserver
+        self.workers = name_server.list(prefix="workers.")
+        print(f"Available workers registered to Name Server: {len(self.workers)} worker nodes.")
 
-        # enumerate file paths to each file
-        paths = glob.glob(filename_pattern)
+        # initialize results dict with worker keys
+        for worker_name, uri in self.workers.items():
+            print(f"Found worker {worker_name}, URI: {uri}")
+            self.results[worker_name] = {}
 
-        # then load each
-        for path in paths:
-            # check if config file exists
-            try:
-                with open(path, "r", encoding="utf-8") as file:
-                    node_data = json.load(file)
-                    self.nodes[node_id] = node_data
-
-                node_id += 1
-            except FileNotFoundError:
-                print(f"File error: couldn't find {json_env}.\n")
-                return
-
-        for id, data in self.nodes.items():
-            self.results[id] = {}
-            self.nodes[id]['proxy'] = Pyro5.api.Proxy(self.nodes[id]['uri'])
-            print(f"Connected to Worker Node {self.nodes[id]['node_name']} at URI {self.nodes[id]['uri']}")
+        print()
 
     """
         Loads dataset from disk and splits it to training and testing (80%/20% default)
@@ -64,32 +50,34 @@ class Master:
         )
 
     """
-        Moves pointer to the next node, and sets it to current
-    """
-    def NextNode(self):
-        # currently docker compose creates 5 worker containers, so it just cycles after 5
-        self.current_node = (self.current_node + 1) % 5
-
-    """
         Entry point to Master node
     """
     def Run(self):
-        #every 5% increase until 100% of the dataset rows
-        for i in range(5, 101, 5):
-            subset = i/100
+        # start with 5% of the training set
+        percent = 5
+        
+        # until 100% of the rows
+        while percent < 101:  
+            for worker_name, uri in self.workers.items():
+                subset = percent/100
 
-            # convert dfs and series to transmittable format (dict), somehow pyro only supports standard types
-            #  this can be expensive/slow
-            xtr = self.X_train.to_dict(orient='records')
-            xte = self.X_test.to_dict(orient='records')
-            ytr = self.y_train.to_dict()
-            yte = self.y_test.to_dict()
-            self.results[self.current_node][str(subset)] = self.nodes[self.current_node]['proxy'].ImaxTrain(xtr, xte, ytr, yte, subset)
-            self.NextNode()
+                # convert dfs and series to transmittable format (dict), somehow pyro only supports standard types
+                #  this can be expensive/slow
+                xtr = self.X_train.to_dict(orient='records')
+                xte = self.X_test.to_dict(orient='records')
+                ytr = self.y_train.to_dict()
+                yte = self.y_test.to_dict()
 
-        for node, data in self.results.items():
-            for subset, results in data.items():
-                print(f"node: {node}, score={results['score']}, duration: {results['duration']}, subset={subset}%\n{results['report']}")
+                # obtain a proxy object to the worker
+                with Pyro5.api.Proxy(uri) as worker: 
+                    self.results[worker_name][f"{percent}%"] = worker.ImaxTrain(xtr, xte, ytr, yte, subset) #RMI
+                
+                #every 5% increase until 100% of the dataset rows
+                percent += 5
+
+        for worker_name, results in self.results.items():
+            for result_class, data in results.items():
+                print(f"worker: {worker_name}, score={data['score']}, duration: {data['duration']}, subset={data['subset']}%\n{data['report']}")
 
 def main():
     time.sleep(3) # wait 3 seconds to let workers write to their files during startup
