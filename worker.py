@@ -4,7 +4,7 @@ import os
 import json
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
-import datetime
+from datetime import datetime
 import pandas as pd
 import socket
 
@@ -20,8 +20,14 @@ class Worker:
         ref: https://www.youtube.com/watch?v=_QuGM_FW9eo
     """
     def ImaxTrain(self, X_train, X_test, y_train, y_test, subset):
+        #convert back to df and series
+        X_train = pd.DataFrame.from_dict(X_train)
+        X_test = pd.DataFrame.from_dict(X_test)
+        y_train = pd.Series(y_train)
+        y_test = pd.Series(y_test)
+
         results = {}
-        last_instance = len(X_train) * subset
+        last_instance = int(len(X_train) * subset)
 
         # subset is from the first row until % of total
         X_subset = X_train.iloc[:last_instance]
@@ -36,6 +42,7 @@ class Worker:
         results['score'] = rf.score(X_test, y_test)
         results['report'] = classification_report(y_test, y_pred)
         results['duration'] = end - start
+        print(f"Finished subset {subset}\n")
         return results
 
 

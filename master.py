@@ -41,6 +41,7 @@ class Master:
                 return
 
         for id, data in self.nodes.items():
+            self.results[id] = {}
             self.nodes[id]['proxy'] = Pyro5.api.Proxy(self.nodes[id]['uri'])
             print(f"Connected to Worker Node {self.nodes[id]['node_name']} at URI {self.nodes[id]['uri']}")
 
@@ -75,13 +76,20 @@ class Master:
     def Run(self):
         #every 5% increase until 100% of the dataset rows
         for i in range(5, 101, 5):
-            subset = int(i/100)
-            self.results[self.current_node]['results'][subset] = self.nodes[self.current_node]['proxy'].ImaxTrain(self.X_train.tolist, self.X_test, self.y_train, self.y_test, subset)
+            subset = i/100
+
+            # convert dfs and series to transmittable format (dict), somehow pyro only supports standard types
+            #  this can be expensive/slow
+            xtr = self.X_train.to_dict(orient='records')
+            xte = self.X_test.to_dict(orient='records')
+            ytr = self.y_train.to_dict()
+            yte = self.y_test.to_dict()
+            self.results[self.current_node][str(subset)] = self.nodes[self.current_node]['proxy'].ImaxTrain(xtr, xte, ytr, yte, subset)
             self.NextNode()
 
         for node, data in self.results.items():
             for subset, results in data.items():
-                print(f"duration: {results['duration']}, subset={subset}%\n{results['report']}")
+                print(f"node: {node}, score={results['score']}, duration: {results['duration']}, subset={subset}%\n{results['report']}")
 
 async def main():
     await asyncio.sleep(3) # wait 3 seconds to let workers write to their files during startup
