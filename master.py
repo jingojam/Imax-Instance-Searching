@@ -10,6 +10,7 @@ from sklearn.model_selection import train_test_split
 #  training/testing split: https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html#sklearn.model_selection.train_test_split
 #  random foresy: https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html
 
+DATASET = f"{os.getcwd()}/data/dataset_phishing_trimmed.csv"
 PERCENT = 5   # starting subset of instances to feed to the workers
 INCREMENT = 5 # increments (5%, 10%, etc.)
 
@@ -48,7 +49,7 @@ class Master:
             self.X, self.y,
             test_size=test_size,
             train_size=train_size,
-            stratify=y,
+            stratify=self.y,
             random_state=42  
         )
 
@@ -95,7 +96,7 @@ class Master:
 def main():
     time.sleep(3) # wait 3 seconds to let workers write to their files during startup
     master = Master()
-    master.LoadDataset(f"{os.getcwd()}/data/dataset_phishing_trimmed.csv", test_size=0.2, train_size=0.8)
+    master.LoadDataset(DATASET, test_size=0.2, train_size=0.8)
     master.Run()
 
 if __name__ == "__main__":
