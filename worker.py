@@ -52,7 +52,7 @@ class Worker:
         results['duration'] = (end - start).total_seconds()
         results['score'] = rf.score(X_test, y_test)
         results['report'] = classification_report(y_test, y_pred, output_dict=True)
-        print(f"Worker {self.node_name} finished subset={int(subset*100)}%\n")
+        print(f"Worker {self.node_name} finished subset={int(subset*100)}%, duration: {results['duration']} seconds\n")
         return results
 
 

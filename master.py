@@ -5,6 +5,7 @@ import json
 import pandas as pd
 import time
 from sklearn.model_selection import train_test_split
+from kneed import KneeLocator
 
 # important stuff
 #  training/testing split: https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html#sklearn.model_selection.train_test_split
@@ -62,15 +63,15 @@ class Master:
         # start with % of the training set
         percent = PERCENT
         
+        # convert dfs and series to transmittable format (dict), somehow pyro only supports standard types
+        #  this can be expensive/slow
+        xtr = self.X_train.to_dict(orient='records')
+        xte = self.X_test.to_dict(orient='records')
+        ytr = self.y_train.to_dict()
+        yte = self.y_test.to_dict()
+
         # until 100% of the rows
         while percent < 101:  
-            # convert dfs and series to transmittable format (dict), somehow pyro only supports standard types
-            #  this can be expensive/slow
-            xtr = self.X_train.to_dict(orient='records')
-            xte = self.X_test.to_dict(orient='records')
-            ytr = self.y_train.to_dict()
-            yte = self.y_test.to_dict()
-            
             #cycle through every worker (round-robin)
             for worker_name, uri in self.workers.items():
                 if percent > 100:
@@ -95,6 +96,74 @@ class Master:
         # write to the results output
         with open(OUTPUT, "w", encoding="utf-8") as file:
             json.dump(self.results, file, indent=2)
+
+        subsets = []
+        train_times = []
+        scores = []
+
+        # get the 
+        for node_name, data in self.results.items():
+            for subset, node_results in data.items():
+                scores.append(node_results['score'])
+                train_times.append(node_results['duration'])
+                subsets.append(int(subset))
+        
+        #create a table (subset, training time, and score as columns)
+        df = pd.DataFrame(
+            {
+                'subset': subsets,
+                'train_time': train_times,
+                'score': scores
+            }
+        )
+
+        # sort the table based on subset
+        df = df.sort_values('subset')
+
+        # find knee (elbow) point between training time and score
+        kl = KneeLocator(df['train_time'], df['score'], curve="concave", direction="increasing")
+
+        # these are the "best" training time and score
+        optimal_train_time = kl.knee
+        optimal_score = kl.knee_y
+
+        optimal_subset = -1
+        optimal_scores = None
+
+        # find the subset that has these train time and score
+        for node_name, data in self.results.items():
+            for subset, node_results in data.items():
+                if node_results['score'] == optimal_score and node_results['duration'] == optimal_train_time:
+                    optimal_subset = subset
+                    optimal_scores = node_results['report']
+                    break
+
+        print(f"Optimal subset:\n")
+        print(f"\tsubset={optimal_subset}%:\n\ttraining time={optimal_train_time}\n\taccuracy={optimal_score}\n\tscores:")
+
+        print(f"\t\t0:")
+        print(f"\t\t\tprecision={optimal_scores['0']['precision']}")
+        print(f"\t\t\trecall={optimal_scores['0']['recall']}")
+        print(f"\t\t\tf1-score={optimal_scores['0']['f1-score']}")
+        print(f"\t\t\tsupport={optimal_scores['0']['support']}\n")
+
+        print(f"\t\t1:")
+        print(f"\t\t\tprecision={optimal_scores['1']['precision']}")
+        print(f"\t\t\trecall={optimal_scores['1']['recall']}")
+        print(f"\t\t\tf1-score={optimal_scores['1']['f1-score']}")
+        print(f"\t\t\tsupport={optimal_scores['1']['support']}\n")
+
+        print(f"\t\tmacro average:")
+        print(f"\t\t\tprecision={optimal_scores['macro avg']['precision']}")
+        print(f"\t\t\trecall={optimal_scores['macro avg']['recall']}")
+        print(f"\t\t\tf1-score={optimal_scores['macro avg']['f1-score']}")
+        print(f"\t\t\tsupport={optimal_scores['macro avg']['support']}\n")
+
+        print(f"\t\tweighted average:")
+        print(f"\t\t\tprecision={optimal_scores['weighted avg']['precision']}")
+        print(f"\t\t\trecall={optimal_scores['weighted avg']['recall']}")
+        print(f"\t\t\tf1-score={optimal_scores['weighted avg']['f1-score']}")
+        print(f"\t\t\tsupport={optimal_scores['weighted avg']['support']}")
 
 def main():
     time.sleep(3) # wait 3 seconds to let workers write to their files during startup
