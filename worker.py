@@ -15,8 +15,8 @@ N_JOBS = 1  # keep at 1-2 when running multiple worker processes on the same mac
 
 @Pyro5.api.expose
 class Worker:
-    def __init(self):
-        pass
+    def __init__(self, node_name):
+        self.node_name = node_name
 
     """
         Method for training (from start_instance row, to last_instance row).
@@ -49,27 +49,26 @@ class Worker:
         end = datetime.now()
 
         # training results
+        results['duration'] = (end - start).total_seconds()
         results['score'] = rf.score(X_test, y_test)
         results['report'] = classification_report(y_test, y_pred, output_dict=True)
-        results['duration'] = (end - start).total_seconds()
-        print(f"Finished subset {subset}\n")
+        print(f"Worker {self.node_name} finished subset={int(subset*100)}%\n")
         return results
 
 
 def main():
     hostname = socket.gethostname()
+    node_name = os.getenv("NODE_NAME", default=None)
 
     # create a pyro daemon for dispatching rpc
     # use hostname assigned to container
     daemon = Pyro5.api.Daemon(host=hostname)
 
     # instantiate worker object
-    worker = Worker()
+    worker = Worker(node_name)
 
     # register the worker object and generate uri
     uri = daemon.register(worker)
-
-    node_name = os.getenv("NODE_NAME", default=None)
 
     if node_name == None:
         print(f"Failed to fetch Worker 'NODE_NAME' environment variable.")
