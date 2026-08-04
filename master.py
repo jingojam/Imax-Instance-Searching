@@ -1,6 +1,7 @@
 import Pyro5.api
 import Pyro5.errors
 import os
+import sys
 import json
 import pandas as pd
 import time
@@ -20,9 +21,9 @@ class Master:
     """
         Default constructor
     """
-    def __init__(self):
+    def __init__(self, ns):
         self.results = {}
-        name_server = Pyro5.api.locate_ns("nameserver")
+        name_server = Pyro5.api.locate_ns(ns)
 
         print()
         
@@ -167,11 +168,23 @@ class Master:
         print(f"\t\t\tf1-score={optimal_scores['weighted avg']['f1-score']}")
         print(f"\t\t\tsupport={optimal_scores['weighted avg']['support']}")
 
-def main():
+def main(ns="nameserver"):
     time.sleep(3) # wait 3 seconds to let workers write to their files during startup
-    master = Master()
+    master = Master(ns)
     master.LoadDataset(DATASET, test_size=0.2, train_size=0.8)
     master.Run()
 
 if __name__ == "__main__":
-    main()
+    mode = None
+    ns = None
+
+    if len(sys.argv) > 1:
+        mode = sys.argv[1]
+
+    # if mode is containerized (via docker)
+    if mode == "containerized":
+        ns = "nameserver" # nameserver is the name assigned to nameserver container
+    elif mode is None or mode == "raw":
+        ns = "0.0.0.0" # if no argument or "raw" mode, use 0.0.0.0 exposed via network
+
+    main(ns)

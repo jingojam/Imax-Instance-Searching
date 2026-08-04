@@ -16,9 +16,8 @@ services:
     build: .
     container_name: worker0
     hostname: worker0
-    command: python3 worker.py
+    command: python3 worker.py containerized
     environment:
-      - NODE_NAME=WORKER0
       - PYTHONUNBUFFERED=1
     networks:
       - imax_net
@@ -29,9 +28,8 @@ services:
     build: .
     container_name: worker1
     hostname: worker1
-    command: python3 worker.py
+    command: python3 worker.py containerized
     environment:
-      - NODE_NAME=WORKER1
       - PYTHONUNBUFFERED=1
     networks:
       - imax_net
@@ -42,9 +40,8 @@ services:
     build: .
     container_name: worker2
     hostname: worker2
-    command: python3 worker.py
+    command: python3 worker.py containerized
     environment:
-      - NODE_NAME=WORKER2
       - PYTHONUNBUFFERED=1
     networks:
       - imax_net
@@ -55,9 +52,8 @@ services:
     build: .
     container_name: worker3
     hostname: worker3
-    command: python3 worker.py
+    command: python3 worker.py containerized
     environment:
-      - NODE_NAME=WORKER3
       - PYTHONUNBUFFERED=1
     networks:
       - imax_net
@@ -68,9 +64,8 @@ services:
     build: .
     container_name: worker4
     hostname: worker4
-    command: python3 worker.py
+    command: python3 worker.py containerized
     environment:
-      - NODE_NAME=WORKER4
       - PYTHONUNBUFFERED=1
     networks:
       - imax_net
@@ -82,9 +77,8 @@ services:
     build: .
     container_name: master
     hostname: master
-    command: python3 master.py
+    command: python3 master.py containerized
     environment:
-      - NODE_NAME=MASTER
       - PYTHONUNBUFFERED=1
     networks:
       - imax_net

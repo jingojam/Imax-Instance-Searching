@@ -1,6 +1,6 @@
 import Pyro5.api
 import os
-import json
+import sys
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
 from datetime import datetime
@@ -52,35 +52,42 @@ class Worker:
         results['duration'] = (end - start).total_seconds()
         results['score'] = rf.score(X_test, y_test)
         results['report'] = classification_report(y_test, y_pred, output_dict=True)
-        print(f"Worker {self.node_name} finished subset={int(subset*100)}%, duration: {results['duration']} seconds\n")
+        print(f"Worker {self.node_name} finished subset={int(subset*100)}%, duration: {results['duration']} seconds, score: {results['score']}\n")
         return results
 
 
-def main():
+def main(ns="nameserver"):
     hostname = socket.gethostname()
-    node_name = os.getenv("NODE_NAME", default=None)
 
     # create a pyro daemon for dispatching rpc
     # use hostname assigned to container
-    daemon = Pyro5.api.Daemon(host=hostname)
+    daemon = Pyro5.api.Daemon(host=socket.gethostbyname(hostname))
 
     # instantiate worker object
-    worker = Worker(node_name)
+    worker = Worker(hostname)
 
     # register the worker object and generate uri
     uri = daemon.register(worker)
 
-    if node_name == None:
-        print(f"Failed to fetch Worker 'NODE_NAME' environment variable.")
-        return
-
     # register worker to name server
-    name_server = Pyro5.api.locate_ns(host="nameserver")
-    friendly_name = f"workers.{node_name}"
+    name_server = Pyro5.api.locate_ns(host=ns)
+    friendly_name = f"workers.{hostname}"
     name_server.register(friendly_name, uri)
-    print(f"Worker {node_name} registered to Name Server as '{friendly_name}'")
+    print(f"Worker {hostname} registered to Name Server as '{friendly_name}'")
         
     daemon.requestLoop()
 
 if __name__ == "__main__":
-    main()
+    mode = None
+    ns = None
+
+    if len(sys.argv) > 1:
+        mode = sys.argv[1]
+
+    # if mode is containerized (via docker)
+    if mode == "containerized":
+        ns = "nameserver" # nameserver is the name assigned to nameserver container
+    elif mode is None or mode == "raw":
+        ns = "0.0.0.0" # if no argument or "raw" mode, use 0.0.0.0 exposed via network
+
+    main(ns)
