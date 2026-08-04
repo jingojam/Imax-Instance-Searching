@@ -129,6 +129,7 @@ class Master:
 
         optimal_subset = -1
         optimal_scores = None
+        worker_assigned = None
 
         # find the subset that has these train time and score
         for node_name, data in self.results.items():
@@ -136,10 +137,11 @@ class Master:
                 if node_results['score'] == optimal_score and node_results['duration'] == optimal_train_time:
                     optimal_subset = subset
                     optimal_scores = node_results['report']
+                    worker_assigned = node_name
                     break
 
         print(f"Optimal subset:\n")
-        print(f"\tsubset={optimal_subset}%:\n\ttraining time={optimal_train_time}\n\taccuracy={optimal_score}\n\tscores:")
+        print(f"\tworker: {worker_assigned}\n\tsubset={optimal_subset}%:\n\ttraining time={optimal_train_time}\n\taccuracy={optimal_score}\n\tscores:")
 
         print(f"\t\t0:")
         print(f"\t\t\tprecision={optimal_scores['0']['precision']}")
