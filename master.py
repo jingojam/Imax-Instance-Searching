@@ -185,6 +185,6 @@ if __name__ == "__main__":
     if mode == "containerized":
         ns = "nameserver" # nameserver is the name assigned to nameserver container
     elif mode is None or mode == "raw":
-        ns = "0.0.0.0" # if no argument or "raw" mode, use 0.0.0.0 exposed via network
+        ns = None # if no argument or "raw" mode
 
     main(ns)
