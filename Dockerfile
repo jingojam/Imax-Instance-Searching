@@ -6,5 +6,6 @@ RUN pip3 install Pyro5
 RUN pip3 install -U scikit-learn
 RUN pip3 install pandas
 RUN pip3 install notebook
+RUN python3 -m pip install -U matplotlib
 
 COPY . .
