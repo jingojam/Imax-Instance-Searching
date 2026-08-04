@@ -49,10 +49,9 @@ class Worker:
         end = datetime.now()
 
         # training results
-        results['subset'] = subset*100
         results['score'] = rf.score(X_test, y_test)
-        results['report'] = classification_report(y_test, y_pred)
-        results['duration'] = end - start
+        results['report'] = classification_report(y_test, y_pred, output_dict=True)
+        results['duration'] = (end - start).total_seconds()
         print(f"Finished subset {subset}\n")
         return results
 

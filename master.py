@@ -10,6 +10,7 @@ from sklearn.model_selection import train_test_split
 #  training/testing split: https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html#sklearn.model_selection.train_test_split
 #  random foresy: https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html
 
+OUTPUT = f"{os.getcwd()}/data/imax_results.json"
 DATASET = f"{os.getcwd()}/data/dataset_phishing_trimmed.csv"
 PERCENT = 5   # starting subset of instances to feed to the workers
 INCREMENT = 5 # increments (5%, 10%, etc.)
@@ -31,7 +32,8 @@ class Master:
         # initialize results dict with worker keys
         for worker_name, uri in self.workers.items():
             print(f"Found worker {worker_name}, URI: {uri}")
-            self.results[worker_name] = {}
+            name = worker_name.removeprefix("workers.")
+            self.results[name] = {}
 
         print()
 
@@ -79,7 +81,8 @@ class Master:
                 # obtain a proxy object to the worker
                 with Pyro5.api.Proxy(uri) as worker:
                     try:
-                        self.results[worker_name][f"{percent}%"] = worker.ImaxTrain(xtr, xte, ytr, yte, subset) #RMI
+                        name = worker_name.removeprefix("workers.")
+                        self.results[name][percent] = worker.ImaxTrain(xtr, xte, ytr, yte, subset) #RMI
                     except Pyro5.errors.CommunicationError: # failed to communicate with worker
                         print(f"Connection to Worker {worker_name} unexpectedly failed.\n")
                         # move to the next worker available
@@ -89,9 +92,9 @@ class Master:
                 #every % increase until 100% of the dataset rows
                 percent += INCREMENT
 
-        for worker_name, results in self.results.items():
-            for result_class, data in results.items():
-                print(f"worker: {worker_name}, score={data['score']}, duration: {data['duration']}, subset={data['subset']}%\n{data['report']}")
+        # write to the results output
+        with open(OUTPUT, "w", encoding="utf-8") as file:
+            json.dump(self.results, file, indent=2)
 
 def main():
     time.sleep(3) # wait 3 seconds to let workers write to their files during startup
