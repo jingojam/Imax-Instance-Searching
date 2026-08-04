@@ -5,8 +5,13 @@ import sys
 import json
 import pandas as pd
 import time
+import threading
+import queue
 from sklearn.model_selection import train_test_split
 from kneed import KneeLocator
+
+#set pyro connection timeout to 5 seconds
+Pyro5.config.COMMTIMEOUT = 5.0
 
 # important stuff
 #  training/testing split: https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html#sklearn.model_selection.train_test_split
@@ -17,12 +22,16 @@ DATASET = f"{os.getcwd()}/data/dataset_phishing_trimmed.csv"
 PERCENT = 5   # starting subset of instances to feed to the workers
 INCREMENT = 5 # increments (5%, 10%, etc.)
 
+#shared data lock
+DATA_LOCK = threading.Lock()
+
 class Master:
     """
         Default constructor
     """
     def __init__(self, ns):
         self.results = {}
+        self.task_queue = queue.Queue()
         name_server = Pyro5.api.locate_ns(ns)
 
         print()
@@ -58,11 +67,52 @@ class Master:
         )
 
     """
+        Background thread for RMI
+    """
+    def DoWork(self, worker_name, uri, xtr, xte, ytr, yte):
+        #  this background thread will run until no more subsets to train on
+        while True:
+            try:
+                # get subset from the queue
+                percent = self.task_queue.get_nowait()
+            except queue.Empty:
+                return
+            
+            subset = percent/100
+
+            # obtain a proxy object to the worker
+            try:
+                with Pyro5.api.Proxy(uri) as worker:
+                    name = worker_name.removeprefix("workers.")
+                    result = worker.ImaxTrain(xtr, xte, ytr, yte, subset) #RMI
+
+                    with DATA_LOCK: # critical section, so lock the shared resource when adding new keys
+                        self.results[name][percent] = result
+            except (Pyro5.errors.CommunicationError, Pyro5.errors.TimeoutError, Pyro5.errors.ConnectionClosedError): # catch all these stuff = failed to communicate with worker
+                    print(f"Connection to Worker {worker_name} unexpectedly failed.\n")
+                    # move to the next worker available
+                    #  use the same subset for the next worker (all-or-nothing for worker)
+                    with DATA_LOCK:
+                        # remove the worker if connection is dropped
+                        if worker_name in self.workers:
+                            del self.workers[worker_name]
+                    self.task_queue.put(percent)
+                    return
+            finally:
+                # done processing
+                self.task_queue.task_done()
+
+    """
         Entry point to Master node
     """
     def Run(self):
         # start with % of the training set
         percent = PERCENT
+
+        #use every subset as tasks
+        while percent < 101:
+            self.task_queue.put(percent)
+            percent += INCREMENT
         
         # convert dfs and series to transmittable format (dict), somehow pyro only supports standard types
         #  this can be expensive/slow
@@ -71,28 +121,18 @@ class Master:
         ytr = self.y_train.to_dict()
         yte = self.y_test.to_dict()
 
-        # until 100% of the rows
-        while percent < 101:  
-            #cycle through every worker (round-robin)
-            for worker_name, uri in self.workers.items():
-                if percent > 100:
-                    break
+        # create threads for every worker
+        threads = []
+        for worker_name, uri in self.workers.items():
+            threads.append(threading.Thread(target=self.DoWork, args=(worker_name, uri, xtr, xte, ytr, yte)))
+            
+        # start each thread
+        for thread in threads:
+            thread.start()
 
-                subset = percent/100
-
-                # obtain a proxy object to the worker
-                with Pyro5.api.Proxy(uri) as worker:
-                    try:
-                        name = worker_name.removeprefix("workers.")
-                        self.results[name][percent] = worker.ImaxTrain(xtr, xte, ytr, yte, subset) #RMI
-                    except Pyro5.errors.CommunicationError: # failed to communicate with worker
-                        print(f"Connection to Worker {worker_name} unexpectedly failed.\n")
-                        # move to the next worker available
-                        #  use the same subset for the next worker (all-or-nothing for worker)
-                        continue
-
-                #every % increase until 100% of the dataset rows
-                percent += INCREMENT
+        # then clean all threads
+        for thread in threads:
+            thread.join()
 
         # write to the results output
         with open(OUTPUT, "w", encoding="utf-8") as file:
